@@ -1,0 +1,176 @@
+const API_BASE_URL = 'http://localhost:8000';
+
+export const api = {
+  async getKnowledgeBases(): Promise<{ total: number; items: any[] }> {
+    const response = await fetch(`${API_BASE_URL}/api/knowledge-base/list`);
+    return response.json();
+  },
+
+  async uploadKnowledgeBase(file: File, name: string, description?: string): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('name', name);
+    if (description) {
+      formData.append('description', description);
+    }
+    const response = await fetch(`${API_BASE_URL}/api/knowledge-base/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+    return response.json();
+  },
+
+  async deleteKnowledgeBase(id: number): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/knowledge-base/${id}`, {
+      method: 'DELETE',
+    });
+    return response.json();
+  },
+
+  async getConversations(): Promise<{ total: number; items: any[] }> {
+    const response = await fetch(`${API_BASE_URL}/api/conversation/list`);
+    return response.json();
+  },
+
+  async createConversation(title: string, description?: string): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/conversation/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, description }),
+    });
+    return response.json();
+  },
+
+  async deleteConversation(id: number): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/conversation/${id}`, {
+      method: 'DELETE',
+    });
+    return response.json();
+  },
+
+  async updateConversation(id: number, data: { title?: string; description?: string }): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/conversation/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async getMessages(conversationId: number): Promise<{ total: number; items: any[] }> {
+    const response = await fetch(`${API_BASE_URL}/api/conversation/${conversationId}/messages`);
+    return response.json();
+  },
+
+  async chatSync(data: {
+    conversation_id: number;
+    message: string;
+    knowledge_base_id?: number;
+    file_paths?: string[];
+  }): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/chat/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async *chatStream(data: {
+    conversation_id: number;
+    message: string;
+    knowledge_base_id?: number;
+    file_paths?: string[];
+  }): AsyncGenerator<{ content: string; is_end: boolean }> {
+    const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('No reader available');
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          if (buffer.trim()) {
+            const parsed = parseSSELine(buffer);
+            if (parsed) yield parsed;
+          }
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const parsed = parseSSELine(line);
+          if (parsed) {
+            yield parsed;
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  },
+
+  async uploadFile(file: File): Promise<{ file_path: string; file_name: string; file_size: number }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await fetch(`${API_BASE_URL}/api/knowledge-base/upload-file`, {
+      method: 'POST',
+      body: formData,
+    });
+    return response.json();
+  },
+
+  async healthCheck(): Promise<{ status: string }> {
+    const response = await fetch(`${API_BASE_URL}/health`);
+    return response.json();
+  },
+
+  async convertToPdf(filePath: string): Promise<{ pdf_path: string }> {
+    const response = await fetch(`${API_BASE_URL}/api/file/convert-to-pdf`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_path: filePath }),
+    });
+    return response.json();
+  },
+};
+
+function parseSSELine(line: string): { content: string; is_end: boolean } | null {
+  const trimmedLine = line.trim();
+  if (!trimmedLine) return null;
+  
+  if (trimmedLine.startsWith('data: ')) {
+    try {
+      const jsonStr = trimmedLine.slice(6);
+      return JSON.parse(jsonStr);
+    } catch (e) {
+      console.error('Failed to parse SSE data:', trimmedLine, e);
+      return null;
+    }
+  }
+  
+  try {
+    return JSON.parse(trimmedLine);
+  } catch {
+    return null;
+  }
+}
