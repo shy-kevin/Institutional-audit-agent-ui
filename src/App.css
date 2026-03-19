@@ -261,6 +261,285 @@ body {
   font-size: 18px;
 }
 
+/* Rule Manager Styles */
+.rule-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+  background: transparent;
+  color: var(--sidebar-text);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.rule-btn:hover {
+  background: var(--sidebar-hover);
+  color: #fff;
+}
+
+.rule-modal {
+  max-width: 800px;
+}
+
+.rule-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.rule-toolbar .create-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--primary-color);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.rule-toolbar .create-btn:hover {
+  background: var(--primary-hover);
+}
+
+.filter-group {
+  display: flex;
+  gap: 12px;
+}
+
+.filter-group select {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 14px;
+  background: #fff;
+  cursor: pointer;
+  min-width: 120px;
+}
+
+.rule-list-section {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.rule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rule-item {
+  background: var(--bg-color);
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.2s;
+}
+
+.rule-item.inactive {
+  opacity: 0.6;
+}
+
+.rule-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.rule-header {
+  margin-bottom: 8px;
+}
+
+.rule-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.rule-type-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.rule-type-badge.global {
+  background: rgba(79, 110, 247, 0.1);
+  color: var(--primary-color);
+}
+
+.rule-type-badge.conversation {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.rule-item .rule-title {
+  font-weight: 600;
+  font-size: 15px;
+  flex: 1;
+}
+
+.rule-status {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.rule-status.active {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.rule-status.inactive {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.rule-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.rule-category {
+  background: rgba(0, 0, 0, 0.05);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.rule-content {
+  font-size: 14px;
+  color: var(--text-color);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 12px;
+}
+
+.rule-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.rule-actions .action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rule-actions .action-btn.toggle {
+  color: #10b981;
+}
+
+.rule-actions .action-btn.toggle:hover {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.rule-actions .action-btn.edit {
+  color: var(--primary-color);
+}
+
+.rule-actions .action-btn.edit:hover {
+  background: rgba(79, 110, 247, 0.1);
+}
+
+.rule-actions .action-btn.delete {
+  color: #ef4444;
+}
+
+.rule-actions .action-btn.delete:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.rule-form-section {
+  padding: 0;
+}
+
+.rule-form-section h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+.rule-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.rule-form .form-group textarea {
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+  resize: vertical;
+  min-height: 100px;
+  font-family: inherit;
+}
+
+.rule-form .form-group textarea:focus {
+  border-color: var(--primary-color);
+}
+
+.rule-form .form-group select {
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+  background: #fff;
+  cursor: pointer;
+}
+
+.rule-form .form-group select:focus {
+  border-color: var(--primary-color);
+}
+
+.rule-form .form-group input[type="number"] {
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+
+.rule-form .form-group input[type="number"]:focus {
+  border-color: var(--primary-color);
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+}
+
+.form-row .form-group {
+  flex: 1;
+}
+
 /* File Preview Link Styles */
 .file-preview-link {
   display: inline-flex;

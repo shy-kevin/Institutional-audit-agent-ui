@@ -3,8 +3,9 @@ import { Sidebar } from './components/Sidebar';
 import { ChatArea } from './components/ChatArea';
 import { KnowledgeBaseModal } from './components/KnowledgeBaseModal';
 import { UpdateConversationModal } from './components/UpdateConversationModal';
+import { RuleManagerModal } from './components/RuleManagerModal';
 import { api } from './services/api';
-import type { Conversation, Message, KnowledgeBase } from './types/index';
+import type { Conversation, Message, KnowledgeBase, Rule } from './types/index';
 import './App.css';
 
 function App() {
@@ -16,7 +17,9 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [showKnowledgeBaseModal, setShowKnowledgeBaseModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showRuleManagerModal, setShowRuleManagerModal] = useState(false);
   const [updatingConversation, setUpdatingConversation] = useState<Conversation | null>(null);
+  const [rules, setRules] = useState<Rule[]>([]);
   
   const streamingMessageIdRef = useRef<number | null>(null);
 
@@ -38,6 +41,15 @@ function App() {
     }
   }, []);
 
+  const loadRules = useCallback(async () => {
+    try {
+      const data = await api.getRules();
+      setRules(data.items || []);
+    } catch (error) {
+      console.error('Failed to load rules:', error);
+    }
+  }, []);
+
   const loadMessages = useCallback(async (conversationId: number) => {
     try {
       const data = await api.getMessages(conversationId);
@@ -51,7 +63,8 @@ function App() {
   useEffect(() => {
     loadConversations();
     loadKnowledgeBases();
-  }, [loadConversations, loadKnowledgeBases]);
+    loadRules();
+  }, [loadConversations, loadKnowledgeBases, loadRules]);
 
   useEffect(() => {
     if (currentConversationId) {
@@ -110,9 +123,9 @@ function App() {
   };
 
   const handleSendMessage = async (message: string, filePaths?: string[]) => {
-    let conversationId = currentConversationId;
+    let conversationId: number = currentConversationId!;
 
-    if (!conversationId) {
+    if (!currentConversationId) {
       try {
         const newConv = await api.createConversation(message.slice(0, 20));
         setConversations((prev) => [newConv, ...prev]);
@@ -205,6 +218,7 @@ function App() {
         onDeleteConversation={handleDeleteConversation}
         onUpdateConversation={handleUpdateConversation}
         onOpenKnowledgeBase={() => setShowKnowledgeBaseModal(true)}
+        onOpenRuleManager={() => setShowRuleManagerModal(true)}
       />
       <ChatArea
         messages={messages}
@@ -231,6 +245,12 @@ function App() {
         }}
         conversation={updatingConversation}
         onUpdate={handleSaveConversation}
+      />
+      <RuleManagerModal
+        isOpen={showRuleManagerModal}
+        onClose={() => setShowRuleManagerModal(false)}
+        rules={rules}
+        onRefresh={loadRules}
       />
     </div>
   );

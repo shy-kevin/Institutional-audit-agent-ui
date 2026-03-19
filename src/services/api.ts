@@ -152,6 +152,83 @@ export const api = {
     });
     return response.json();
   },
+
+  async getRules(params?: {
+    skip?: number;
+    limit?: number;
+    rule_type?: string;
+    conversation_id?: number;
+    category?: string;
+    is_active?: boolean;
+  }): Promise<{ total: number; items: any[] }> {
+    const searchParams = new URLSearchParams();
+    if (params?.skip !== undefined) searchParams.append('skip', params.skip.toString());
+    if (params?.limit !== undefined) searchParams.append('limit', params.limit.toString());
+    if (params?.rule_type) searchParams.append('rule_type', params.rule_type);
+    if (params?.conversation_id !== undefined) searchParams.append('conversation_id', params.conversation_id.toString());
+    if (params?.category) searchParams.append('category', params.category);
+    if (params?.is_active !== undefined) searchParams.append('is_active', params.is_active.toString());
+    
+    const url = `${API_BASE_URL}/api/rule/list${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+    const response = await fetch(url);
+    return response.json();
+  },
+
+  async getRule(id: number): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/rule/${id}`);
+    return response.json();
+  },
+
+  async createRule(data: {
+    title: string;
+    content: string;
+    rule_type?: string;
+    conversation_id?: number | null;
+    category?: string;
+    priority?: number;
+  }): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/rule/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async updateRule(id: number, data: {
+    title?: string;
+    content?: string;
+    rule_type?: string;
+    category?: string;
+    priority?: number;
+    is_active?: boolean;
+  }): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/rule/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async deleteRule(id: number): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/rule/${id}`, {
+      method: 'DELETE',
+    });
+    return response.json();
+  },
+
+  async toggleRule(id: number): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/rule/${id}/toggle`, {
+      method: 'POST',
+    });
+    return response.json();
+  },
+
+  async getActiveRules(conversationId: number): Promise<{ total: number; items: any[] }> {
+    const response = await fetch(`${API_BASE_URL}/api/rule/conversation/${conversationId}/active`);
+    return response.json();
+  },
 };
 
 function parseSSELine(line: string): { content: string; is_end: boolean } | null {
