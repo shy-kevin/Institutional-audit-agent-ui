@@ -1,4 +1,19 @@
+import type {
+  AuditTask,
+  AuditTaskListResponse,
+  AuditResult,
+  AuditIssue,
+  AuditConfig,
+  Checklist,
+  AuditStatistics,
+  AuditHistoryListResponse,
+  VersionCompareResult,
+  AuditTrail,
+} from '../types/index';
+
 const API_BASE_URL = 'http://localhost:8000';
+
+export const getApiBaseUrl = () => API_BASE_URL;
 
 export const api = {
   async getKnowledgeBases(): Promise<{ total: number; items: any[] }> {
@@ -227,6 +242,220 @@ export const api = {
 
   async getActiveRules(conversationId: number): Promise<{ total: number; items: any[] }> {
     const response = await fetch(`${API_BASE_URL}/api/rule/conversation/${conversationId}/active`);
+    return response.json();
+  },
+
+  async getAuditStatistics(): Promise<AuditStatistics> {
+    const response = await fetch(`${API_BASE_URL}/api/audit/statistics`);
+    return response.json();
+  },
+
+  async getAuditTasks(params?: { limit?: number; status?: string }): Promise<AuditTaskListResponse> {
+    const searchParams = new URLSearchParams();
+    if (params?.limit !== undefined) searchParams.append('limit', params.limit.toString());
+    if (params?.status) searchParams.append('status', params.status);
+    
+    const url = `${API_BASE_URL}/api/audit/tasks${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+    const response = await fetch(url);
+    return response.json();
+  },
+
+  async getAuditTask(id: number): Promise<AuditTask> {
+    const response = await fetch(`${API_BASE_URL}/api/audit/task/${id}`);
+    return response.json();
+  },
+
+  async createAuditTask(data: {
+    document_path: string;
+    document_name: string;
+    audit_type: 'draft' | 'revision' | 'current';
+    config_id?: number;
+  }): Promise<AuditTask> {
+    const response = await fetch(`${API_BASE_URL}/api/audit/task/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async startAudit(taskId: number, data: { config_id?: number; knowledge_base_ids?: number[] }): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/audit/task/${taskId}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async pauseAuditTask(taskId: number): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/audit/task/${taskId}/pause`, {
+      method: 'POST',
+    });
+    return response.json();
+  },
+
+  async cancelAuditTask(taskId: number): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/audit/task/${taskId}/cancel`, {
+      method: 'POST',
+    });
+    return response.json();
+  },
+
+  async *streamAuditResult(taskId: number): AsyncGenerator<{ content: string; is_end: boolean }> {
+    const response = await fetch(`${API_BASE_URL}/api/audit/task/${taskId}/stream`, {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('No reader available');
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          if (buffer.trim()) {
+            const parsed = parseSSELine(buffer);
+            if (parsed) yield parsed;
+          }
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const parsed = parseSSELine(line);
+          if (parsed) {
+            yield parsed;
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  },
+
+  async getAuditResult(resultId: number): Promise<AuditResult> {
+    const response = await fetch(`${API_BASE_URL}/api/audit/result/${resultId}`);
+    return response.json();
+  },
+
+  async getAuditIssues(resultId: number): Promise<{ total: number; items: AuditIssue[] }> {
+    const response = await fetch(`${API_BASE_URL}/api/audit/result/${resultId}/issues`);
+    return response.json();
+  },
+
+  async updateIssueStatus(issueId: number, data: {
+    status: 'accepted' | 'rejected' | 'partial_accepted';
+    suggestion?: string;
+    reject_reason?: string;
+  }): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/audit/issue/${issueId}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async getDocumentContent(resultId: number): Promise<{ content: string }> {
+    const response = await fetch(`${API_BASE_URL}/api/audit/result/${resultId}/document`);
+    return response.json();
+  },
+
+  async exportAuditReport(resultId: number, format: 'word' | 'pdf' | 'report'): Promise<{
+    download_url: string;
+    file_name: string;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/api/audit/result/${resultId}/export`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ format }),
+    });
+    return response.json();
+  },
+
+  async getChecklists(): Promise<{ total: number; items: Checklist[] }> {
+    const response = await fetch(`${API_BASE_URL}/api/audit/checklists`);
+    return response.json();
+  },
+
+  async createAuditConfig(data: {
+    name: string;
+    audit_dimensions: ('compliance' | 'consistency' | 'format' | 'version_compare')[];
+    focus_keywords?: string[];
+    checklist_ids: number[];
+    is_default: boolean;
+    knowledge_base_ids?: number[];
+  }): Promise<AuditConfig> {
+    const response = await fetch(`${API_BASE_URL}/api/audit/config/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async createVersionCompareTask(data: {
+    old_document_path: string;
+    new_document_path: string;
+    config_id?: number;
+  }): Promise<{ id: number }> {
+    const response = await fetch(`${API_BASE_URL}/api/audit/version-compare/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async getVersionCompareResult(taskId: number): Promise<VersionCompareResult> {
+    const response = await fetch(`${API_BASE_URL}/api/audit/version-compare/${taskId}`);
+    return response.json();
+  },
+
+  async getAuditHistory(params: {
+    date_range?: string;
+    audit_type?: string;
+    risk_level?: string;
+    keyword?: string;
+  }): Promise<AuditHistoryListResponse> {
+    const searchParams = new URLSearchParams();
+    if (params.date_range) searchParams.append('date_range', params.date_range);
+    if (params.audit_type) searchParams.append('audit_type', params.audit_type);
+    if (params.risk_level) searchParams.append('risk_level', params.risk_level);
+    if (params.keyword) searchParams.append('keyword', params.keyword);
+    
+    const url = `${API_BASE_URL}/api/audit/history${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+    const response = await fetch(url);
+    return response.json();
+  },
+
+  async getAuditTrails(taskId: number): Promise<{ total: number; items: AuditTrail[] }> {
+    const response = await fetch(`${API_BASE_URL}/api/audit/task/${taskId}/trails`);
+    return response.json();
+  },
+
+  async exportAuditTrail(taskId: number): Promise<{
+    download_url: string;
+    file_name: string;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/api/audit/task/${taskId}/trail/export`, {
+      method: 'POST',
+    });
     return response.json();
   },
 };

@@ -1,257 +1,175 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Sidebar } from './components/Sidebar';
-import { ChatArea } from './components/ChatArea';
-import { KnowledgeBaseModal } from './components/KnowledgeBaseModal';
-import { UpdateConversationModal } from './components/UpdateConversationModal';
-import { RuleManagerModal } from './components/RuleManagerModal';
-import { api } from './services/api';
-import type { Conversation, Message, KnowledgeBase, Rule } from './types/index';
+import { useState } from 'react';
+import { Dashboard } from './pages/Dashboard';
+import { DocumentUploadPage } from './pages/DocumentUploadPage';
+import { AuditConfigPage } from './pages/AuditConfigPage';
+import { AuditProgressPage } from './pages/AuditProgressPage';
+import { AuditResultPage } from './pages/AuditResultPage';
+import { AuditReviewPage } from './pages/AuditReviewPage';
+import { AuditHistoryPage } from './pages/AuditHistoryPage';
+import { KnowledgeBasePage } from './pages/KnowledgeBasePage';
+import { RuleManagePage } from './pages/RuleManagePage';
 import './App.css';
 
+type PageType = 'dashboard' | 'upload' | 'config' | 'progress' | 'result' | 'review' | 'history' | 'knowledge-base' | 'rules';
+
+interface PageParams {
+  mode?: 'single' | 'batch' | 'compare';
+  taskId?: number;
+  taskIds?: number[];
+  resultId?: number;
+  files?: any[];
+  auditType?: 'draft' | 'revision' | 'current';
+}
+
 function App() {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
-  const [selectedKnowledgeBaseId, setSelectedKnowledgeBaseId] = useState<number | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showKnowledgeBaseModal, setShowKnowledgeBaseModal] = useState(false);
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
-  const [showRuleManagerModal, setShowRuleManagerModal] = useState(false);
-  const [updatingConversation, setUpdatingConversation] = useState<Conversation | null>(null);
-  const [rules, setRules] = useState<Rule[]>([]);
-  
-  const streamingMessageIdRef = useRef<number | null>(null);
+  const [currentPage, setCurrentPage] = useState<PageType>('dashboard');
+  const [pageParams, setPageParams] = useState<PageParams>({});
 
-  const loadConversations = useCallback(async () => {
-    try {
-      const data = await api.getConversations();
-      setConversations(data.items || []);
-    } catch (error) {
-      console.error('Failed to load conversations:', error);
-    }
-  }, []);
-
-  const loadKnowledgeBases = useCallback(async () => {
-    try {
-      const data = await api.getKnowledgeBases();
-      setKnowledgeBases(data.items || []);
-    } catch (error) {
-      console.error('Failed to load knowledge bases:', error);
-    }
-  }, []);
-
-  const loadRules = useCallback(async () => {
-    try {
-      const data = await api.getRules();
-      setRules(data.items || []);
-    } catch (error) {
-      console.error('Failed to load rules:', error);
-    }
-  }, []);
-
-  const loadMessages = useCallback(async (conversationId: number) => {
-    try {
-      const data = await api.getMessages(conversationId);
-      setMessages(data.items || []);
-    } catch (error) {
-      console.error('Failed to load messages:', error);
-      setMessages([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadConversations();
-    loadKnowledgeBases();
-    loadRules();
-  }, [loadConversations, loadKnowledgeBases, loadRules]);
-
-  useEffect(() => {
-    if (currentConversationId) {
-      loadMessages(currentConversationId);
-    } else {
-      setMessages([]);
-    }
-  }, [currentConversationId, loadMessages]);
-
-  const handleNewConversation = async () => {
-    try {
-      const newConv = await api.createConversation('新对话');
-      setConversations((prev) => [newConv, ...prev]);
-      setCurrentConversationId(newConv.id);
-      setMessages([]);
-    } catch (error) {
-      console.error('Failed to create conversation:', error);
-    }
+  const handleNavigate = (page: string, params?: Record<string, unknown>) => {
+    setCurrentPage(page as PageType);
+    setPageParams(params || {});
   };
 
-  const handleSelectConversation = (id: number) => {
-    setCurrentConversationId(id);
-  };
-
-  const handleDeleteConversation = async (id: number) => {
-    if (!confirm('确定要删除这个对话吗？')) return;
-    try {
-      await api.deleteConversation(id);
-      setConversations((prev) => prev.filter((c) => c.id !== id));
-      if (currentConversationId === id) {
-        setCurrentConversationId(null);
-        setMessages([]);
-      }
-    } catch (error) {
-      console.error('Failed to delete conversation:', error);
-    }
-  };
-
-  const handleUpdateConversation = (id: number) => {
-    const conversation = conversations.find((c) => c.id === id);
-    if (conversation) {
-      setUpdatingConversation(conversation);
-      setShowUpdateModal(true);
-    }
-  };
-
-  const handleSaveConversation = async (id: number, title: string, description: string) => {
-    const updated = await api.updateConversation(id, { title, description });
-    setConversations((prev) =>
-      prev.map((c) =>
-        c.id === id
-          ? { ...c, title: updated.title, description: updated.description, updated_at: updated.updated_at }
-          : c
-      )
-    );
-  };
-
-  const handleSendMessage = async (message: string, filePaths?: string[]) => {
-    let conversationId: number = currentConversationId!;
-
-    if (!currentConversationId) {
-      try {
-        const newConv = await api.createConversation(message.slice(0, 20));
-        setConversations((prev) => [newConv, ...prev]);
-        conversationId = newConv.id;
-        setCurrentConversationId(conversationId);
-      } catch (error) {
-        console.error('Failed to create conversation:', error);
-        return;
-      }
-    }
-
-    const userMessage: Message = {
-      id: Date.now(),
-      conversation_id: conversationId,
-      role: 'user',
-      content: message,
-      file_paths: filePaths ? JSON.stringify(filePaths) : null,
-      knowledge_base_id: selectedKnowledgeBaseId,
-      created_at: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, userMessage]);
-    setIsLoading(true);
-
-    const assistantMessageId = Date.now() + 1;
-    streamingMessageIdRef.current = assistantMessageId;
-    
-    const assistantMessage: Message = {
-      id: assistantMessageId,
-      conversation_id: conversationId,
-      role: 'assistant',
-      content: '',
-      file_paths: null,
-      knowledge_base_id: null,
-      created_at: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, assistantMessage]);
-
-    try {
-      let assistantContent = '';
+  const renderPage = () => {
+    switch (currentPage) {
+      case 'dashboard':
+        return <Dashboard onNavigate={handleNavigate} />;
       
-      for await (const chunk of api.chatStream({
-        conversation_id: conversationId,
-        message,
-        knowledge_base_id: selectedKnowledgeBaseId || undefined,
-        file_paths: filePaths,
-      })) {
-        assistantContent += chunk.content;
-        
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMessageId 
-              ? { ...m, content: assistantContent } 
-              : m
-          )
+      case 'upload':
+        return (
+          <DocumentUploadPage
+            mode={pageParams.mode as 'single' | 'batch' | 'compare' || 'single'}
+            onNavigate={handleNavigate}
+          />
         );
-        
-        if (chunk.is_end) break;
-      }
-    } catch (error) {
-      console.error('Chat failed:', error);
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantMessageId 
-            ? { ...m, content: '抱歉，发生了错误，请稍后重试。。' } 
-            : m
-        )
-      );
-    } finally {
-      setIsLoading(false);
-      streamingMessageIdRef.current = null;
-      loadConversations();
+      
+      case 'config':
+        return (
+          <AuditConfigPage
+            taskId={pageParams.taskId}
+            files={pageParams.files}
+            auditType={pageParams.auditType}
+            onNavigate={handleNavigate}
+          />
+        );
+      
+      case 'progress':
+        return (
+          <AuditProgressPage
+            taskId={pageParams.taskId}
+            taskIds={pageParams.taskIds}
+            mode={pageParams.mode as 'single' | 'batch' | 'compare'}
+            onNavigate={handleNavigate}
+          />
+        );
+      
+      case 'result':
+        return (
+          <AuditResultPage
+            resultId={pageParams.resultId!}
+            onNavigate={handleNavigate}
+          />
+        );
+      
+      case 'review':
+        return (
+          <AuditReviewPage
+            resultId={pageParams.resultId!}
+            onNavigate={handleNavigate}
+          />
+        );
+      
+      case 'history':
+        return <AuditHistoryPage onNavigate={handleNavigate} />;
+      
+      case 'knowledge-base':
+        return <KnowledgeBasePage onNavigate={handleNavigate} />;
+      
+      case 'rules':
+        return <RuleManagePage onNavigate={handleNavigate} />;
+      
+      default:
+        return <Dashboard onNavigate={handleNavigate} />;
     }
-  };
-
-  const handleUploadKnowledgeBase = async (file: File, name: string, description?: string) => {
-    await api.uploadKnowledgeBase(file, name, description);
-  };
-
-  const handleDeleteKnowledgeBase = async (id: number) => {
-    await api.deleteKnowledgeBase(id);
   };
 
   return (
     <div className="app">
-      <Sidebar
-        conversations={conversations}
-        currentConversationId={currentConversationId}
-        onSelectConversation={handleSelectConversation}
-        onNewConversation={handleNewConversation}
-        onDeleteConversation={handleDeleteConversation}
-        onUpdateConversation={handleUpdateConversation}
-        onOpenKnowledgeBase={() => setShowKnowledgeBaseModal(true)}
-        onOpenRuleManager={() => setShowRuleManagerModal(true)}
-      />
-      <ChatArea
-        messages={messages}
-        knowledgeBases={knowledgeBases}
-        selectedKnowledgeBaseId={selectedKnowledgeBaseId}
-        onSelectKnowledgeBase={setSelectedKnowledgeBaseId}
-        onSendMessage={handleSendMessage}
-        onRefreshKnowledgeBases={loadKnowledgeBases}
-        isLoading={isLoading}
-      />
-      <KnowledgeBaseModal
-        isOpen={showKnowledgeBaseModal}
-        onClose={() => setShowKnowledgeBaseModal(false)}
-        knowledgeBases={knowledgeBases}
-        onUpload={handleUploadKnowledgeBase}
-        onDelete={handleDeleteKnowledgeBase}
-        onRefresh={loadKnowledgeBases}
-      />
-      <UpdateConversationModal
-        isOpen={showUpdateModal}
-        onClose={() => {
-          setShowUpdateModal(false);
-          setUpdatingConversation(null);
-        }}
-        conversation={updatingConversation}
-        onUpdate={handleSaveConversation}
-      />
-      <RuleManagerModal
-        isOpen={showRuleManagerModal}
-        onClose={() => setShowRuleManagerModal(false)}
-        rules={rules}
-        onRefresh={loadRules}
-      />
+      <div className="app-sidebar">
+        <div className="sidebar-logo">
+          <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+          </svg>
+          <span>制度审查智能体</span>
+        </div>
+        
+        <nav className="sidebar-nav">
+          <button
+            className={`nav-item ${currentPage === 'dashboard' ? 'active' : ''}`}
+            onClick={() => handleNavigate('dashboard')}
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+              <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+            </svg>
+            <span>工作台</span>
+          </button>
+          
+          <button
+            className={`nav-item ${currentPage === 'upload' ? 'active' : ''}`}
+            onClick={() => handleNavigate('upload', { mode: 'single' })}
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+              <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+            </svg>
+            <span>发起审查</span>
+          </button>
+          
+          <button
+            className={`nav-item ${currentPage === 'history' ? 'active' : ''}`}
+            onClick={() => handleNavigate('history')}
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+              <path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>
+            </svg>
+            <span>审查历史</span>
+          </button>
+
+          <button
+            className={`nav-item ${currentPage === 'knowledge-base' ? 'active' : ''}`}
+            onClick={() => handleNavigate('knowledge-base')}
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+              <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/>
+            </svg>
+            <span>知识库</span>
+          </button>
+
+          <button
+            className={`nav-item ${currentPage === 'rules' ? 'active' : ''}`}
+            onClick={() => handleNavigate('rules')}
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+              <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+            </svg>
+            <span>规则管理</span>
+          </button>
+        </nav>
+
+        <div className="sidebar-footer">
+          <div className="user-info">
+            <div className="user-avatar">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+              </svg>
+            </div>
+            <div className="user-name">管理员</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="app-main">
+        {renderPage()}
+      </div>
     </div>
   );
 }
