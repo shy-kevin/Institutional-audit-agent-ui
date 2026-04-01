@@ -42,6 +42,11 @@ export const api = {
     return response.json();
   },
 
+  async getKnowledgeBaseDetail(docId: string): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/knowledge-base/detail/${docId}`);
+    return response.json();
+  },
+
   async getConversations(): Promise<{ total: number; items: any[] }> {
     const response = await fetch(`${API_BASE_URL}/api/conversation/list`);
     return response.json();

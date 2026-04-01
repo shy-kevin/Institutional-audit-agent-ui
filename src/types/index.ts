@@ -9,6 +9,32 @@ export type KnowledgeBase = {
   updated_at: string;
 }
 
+export type KnowledgeBaseChunk = {
+  chunk_id: number;
+  text: string;
+  chunk_type: string;
+}
+
+export type KnowledgeBaseMetadata = {
+  page_count: number;
+  word_count: number;
+}
+
+export type KnowledgeBaseStructuredInfo = {
+  chunks: KnowledgeBaseChunk[];
+  metadata: KnowledgeBaseMetadata;
+}
+
+export type KnowledgeBaseDetail = {
+  id: string;
+  filename: string;
+  status: string;
+  structured_info: KnowledgeBaseStructuredInfo;
+  parsed_data: {
+    pages: any[];
+  };
+}
+
 export type Conversation = {
   id: number;
   title: string;

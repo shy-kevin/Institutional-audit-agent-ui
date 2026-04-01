@@ -8,9 +8,10 @@ import { AuditReviewPage } from './pages/AuditReviewPage';
 import { AuditHistoryPage } from './pages/AuditHistoryPage';
 import { KnowledgeBasePage } from './pages/KnowledgeBasePage';
 import { RuleManagePage } from './pages/RuleManagePage';
+import { KnowledgeBaseDetailPage } from './pages/KnowledgeBaseDetailPage';
 import './App.css';
 
-type PageType = 'dashboard' | 'upload' | 'config' | 'progress' | 'result' | 'review' | 'history' | 'knowledge-base' | 'rules';
+type PageType = 'dashboard' | 'upload' | 'config' | 'progress' | 'result' | 'review' | 'history' | 'knowledge-base' | 'rules' | 'knowledge-base-detail';
 
 interface PageParams {
   mode?: 'single' | 'batch' | 'compare';
@@ -19,6 +20,7 @@ interface PageParams {
   resultId?: number;
   files?: any[];
   auditType?: 'draft' | 'revision' | 'current';
+  docId?: string;
 }
 
 function App() {
@@ -87,6 +89,14 @@ function App() {
       
       case 'rules':
         return <RuleManagePage onNavigate={handleNavigate} />;
+      
+      case 'knowledge-base-detail':
+        return (
+          <KnowledgeBaseDetailPage 
+            docId={pageParams.docId as string} 
+            onNavigate={handleNavigate} 
+          />
+        );
       
       default:
         return <Dashboard onNavigate={handleNavigate} />;
