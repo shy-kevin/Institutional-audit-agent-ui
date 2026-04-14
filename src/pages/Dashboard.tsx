@@ -64,22 +64,24 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     return classMap[status] || '';
   };
 
-  const getRiskLevelClass = (level: string) => {
+ const getRiskLevelClass = (level: string | null) => {
+    if (!level) return 'risk-unknown';
     const classMap: Record<string, string> = {
       high: 'risk-high',
       medium: 'risk-medium',
       low: 'risk-low',
     };
-    return classMap[level] || '';
+    return classMap[level] || 'risk-unknown';
   };
 
-  const getRiskLevelText = (level: string) => {
+  const getRiskLevelText = (level: string | null) => {
+    if (!level) return '未评估';
     const levelMap: Record<string, string> = {
       high: '高风险',
       medium: '中风险',
       low: '低风险',
     };
-    return levelMap[level] || level;
+    return levelMap[level] || '未评估';
   };
 
   const getAuditTypeText = (type: string) => {
@@ -284,8 +286,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                       <span className={`risk-badge ${getRiskLevelClass(record.risk_level)}`}>
                         {getRiskLevelText(record.risk_level)}
                       </span>
-                      <span className="issue-count">{record.issue_count} 个问题</span>
-                      <span className="history-time">{new Date(record.audit_time).toLocaleString()}</span>
+                      <span className="issue-count">{record.total_issues} 个问题</span>
+                      <span className="history-time">{new Date(record.created_at).toLocaleString()}</span>
                     </div>
                   </div>
                   <div className="history-action">

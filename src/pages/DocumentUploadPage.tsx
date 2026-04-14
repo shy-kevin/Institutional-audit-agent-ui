@@ -152,19 +152,26 @@ export function DocumentUploadPage({ mode, onNavigate }: DocumentUploadPageProps
         const uploadPromises = uploadedFiles.map((doc) => api.uploadFile(doc.file));
         const uploadResults = await Promise.all(uploadPromises);
         
-        const taskPromises = uploadResults.map((result) =>
-          api.createAuditTask({
-            document_path: result.file_path,
-            document_name: result.file_name,
-            audit_type: auditType,
-          })
-        );
-        const tasks = await Promise.all(taskPromises);
+        // 准备文档信息用于批量创建
+        const docsInfo = uploadResults.map((result) => ({
+          document_path: result.file_path,
+          document_name: result.file_name,
+        }));
         
-        if (tasks.length === 1) {
-          onNavigate('config', { taskId: tasks[0].id });
+        if (uploadResults.length === 1) {
+          // 单个文件：创建任务后直接跳转到配置页面
+          const task = await api.createAuditTask({
+            document_path: uploadResults[0].file_path,
+            document_name: uploadResults[0].file_name,
+            audit_type: auditType,
+          });
+          onNavigate('config', { taskId: task.id, documents: [docsInfo[0]], auditType });
         } else {
-          onNavigate('progress', { taskIds: tasks.map((t) => t.id) });
+          // 多个文件：跳转到进度页面，使用批量创建
+          onNavigate('progress', { 
+            documents: docsInfo, 
+            auditType 
+          });
         }
       }
     } catch (error) {

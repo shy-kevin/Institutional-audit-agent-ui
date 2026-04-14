@@ -202,12 +202,19 @@ export type AuditStatistics = {
 
 export type AuditHistory = {
   id: number;
+  task_id: number;
   document_name: string;
-  audit_type: 'draft' | 'revision' | 'current';
-  audit_time: string;
-  risk_level: 'high' | 'medium' | 'low';
-  issue_count: number;
-  status: 'completed' | 'archived';
+  audit_type?: 'draft' | 'revision' | 'current';
+  audit_time?: string;
+  risk_level: 'high' | 'medium' | 'low' | null;
+  total_issues: number;
+  compliance_issues: number;
+  consistency_issues: number;
+  format_issues: number;
+  issue_count?: number;
+  status: 'pending_review' | 'completed' | 'archived';
+  created_at: string;
+  updated_at: string;
   auditor?: string;
 }
 
@@ -261,4 +268,111 @@ export type AuditTrail = {
   actor?: string;
   timestamp: string;
   details?: string;
+}
+
+// 用户相关类型
+export type User = {
+  id: number;
+  username: string;
+  account: string;
+  phone?: string | null;
+  department?: string | null;
+  role: 'admin' | 'user';
+  is_active: boolean;
+  last_login?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+}
+
+export type UserRegister = {
+  username: string;
+  account: string;
+  password: string;
+  phone?: string;
+  department?: string;
+}
+
+export type UserLogin = {
+  account: string;
+  password: string;
+}
+
+export type UserListResponse = {
+  total: number;
+  items: User[];
+}
+
+// 审核确认相关类型
+export type ResultStatus = 'pending_review' | 'reviewing' | 'completed';
+
+export type IssueStatus = 'pending' | 'accepted' | 'rejected' | 'partial_accepted';
+
+export type ReviewStatistics = {
+  total_issues: number;
+  pending_issues: number;
+  accepted_issues: number;
+  rejected_issues: number;
+  partial_accepted_issues: number;
+  review_progress: number;
+  all_reviewed: boolean;
+}
+
+export type ReviewConfirmRequest = {
+  comment?: string;
+}
+
+export type ReviewRejectRequest = {
+  reason: string;
+}
+
+export type BatchUpdateIssuesRequest = {
+  issue_ids: number[];
+  status: IssueStatus;
+}
+
+export type ReviewAuditResult = {
+  id: number;
+  task_id: number;
+  document_name: string;
+  risk_level: string;
+  total_issues: number;
+  compliance_issues: number;
+  consistency_issues: number;
+  format_issues: number;
+  status: ResultStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+// 智能编制助手相关类型
+export type SystemDocumentStatus = 'drafting' | 'pending_review' | 'published' | 'needs_revision';
+
+export type SystemDocumentType = '人事管理' | '业务流程' | '财务管理' | '安全管理' | '其他';
+
+export type SystemDocument = {
+  id: number;
+  name: string;
+  type: SystemDocumentType;
+  status: SystemDocumentStatus;
+  author: string;
+  updated_at: string;
+  created_at?: string;
+}
+
+export type DocumentStatistics = {
+  total: number;
+  drafting_count: number;
+  drafting_week_new: number;
+  completed_count: number;
+  completed_month_count: number;
+  archived_count: number;
+  pending_review_count: number;
+}
+
+export type UserPermission = {
+  id: number;
+  username: string;
+  department: string;
+  can_view: boolean;
+  can_edit: boolean;
 }

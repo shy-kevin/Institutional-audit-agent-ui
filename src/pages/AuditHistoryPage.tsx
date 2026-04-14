@@ -45,9 +45,10 @@ export function AuditHistoryPage({ onNavigate }: AuditHistoryPageProps) {
     if (filters.dateRange !== 'all') {
       const now = new Date();
       const filterDate = new Date();
+      
       switch (filters.dateRange) {
         case 'today':
-          filterDate.setDate(now.getDate() - 1);
+          filterDate.setHours(0, 0, 0, 0);
           break;
         case 'week':
           filterDate.setDate(now.getDate() - 7);
@@ -56,7 +57,8 @@ export function AuditHistoryPage({ onNavigate }: AuditHistoryPageProps) {
           filterDate.setMonth(now.getMonth() - 1);
           break;
       }
-      filtered = filtered.filter((item) => new Date(item.audit_time) >= filterDate);
+      
+      filtered = filtered.filter((item) => new Date(item.created_at) >= filterDate);
     }
 
     if (filters.auditType !== 'all') {
@@ -77,37 +79,14 @@ export function AuditHistoryPage({ onNavigate }: AuditHistoryPageProps) {
     setFilteredHistory(filtered);
   };
 
-  const loadTrails = async (taskId: number) => {
+  const handleRecordClick = async (record: AuditHistory) => {
+    setSelectedRecord(record);
     try {
-      const data = await api.getAuditTrails(taskId);
+      const data = await api.getAuditTrails(record.task_id);
       setTrails(data.items || []);
     } catch (error) {
       console.error('Failed to load trails:', error);
-    }
-  };
-
-  const handleRecordClick = (record: AuditHistory) => {
-    setSelectedRecord(record);
-    loadTrails(record.id);
-  };
-
-  const handleViewDetail = (record: AuditHistory) => {
-    onNavigate('result', { resultId: record.id });
-  };
-
-  const handleReAudit = async (record: AuditHistory) => {
-    if (!confirm('确定要重新审查此文档吗？')) return;
-    
-    try {
-      const task = await api.createAuditTask({
-        document_path: '',
-        document_name: record.document_name,
-        audit_type: record.audit_type,
-      });
-      onNavigate('progress', { taskId: task.id });
-    } catch (error) {
-      console.error('Failed to re-audit:', error);
-      alert('重新审查失败');
+      setTrails([]);
     }
   };
 
@@ -121,7 +100,7 @@ export function AuditHistoryPage({ onNavigate }: AuditHistoryPageProps) {
         downloadUrl = exportData.download_url;
         fileName = exportData.file_name;
       } else {
-        const trailData = await api.exportAuditTrail(record.id);
+        const trailData = await api.exportAuditTrail(record.task_id);
         downloadUrl = trailData.download_url;
         fileName = trailData.file_name;
       }
@@ -138,25 +117,28 @@ export function AuditHistoryPage({ onNavigate }: AuditHistoryPageProps) {
     }
   };
 
-  const getRiskLevelClass = (level: string) => {
+  const getRiskLevelClass = (level: string | null) => {
+    if (!level) return 'risk-unknown';
     const classMap: Record<string, string> = {
       high: 'risk-high',
       medium: 'risk-medium',
       low: 'risk-low',
     };
-    return classMap[level] || '';
+    return classMap[level] || 'risk-unknown';
   };
 
-  const getRiskLevelText = (level: string) => {
+  const getRiskLevelText = (level: string | null) => {
+    if (!level) return '未评估';
     const levelMap: Record<string, string> = {
       high: '高风险',
       medium: '中风险',
       low: '低风险',
     };
-    return levelMap[level] || level;
+    return levelMap[level] || '未评估';
   };
 
-  const getAuditTypeText = (type: string) => {
+  const getAuditTypeText = (type: string | undefined) => {
+    if (!type) return '-';
     const typeMap: Record<string, string> = {
       draft: '拟制审查',
       revision: '修订审查',
@@ -167,10 +149,20 @@ export function AuditHistoryPage({ onNavigate }: AuditHistoryPageProps) {
 
   const getStatusText = (status: string) => {
     const statusMap: Record<string, string> = {
+      pending_review: '待复核',
       completed: '已完成',
       archived: '已归档',
     };
     return statusMap[status] || status;
+  };
+
+  const getStatusClass = (status: string) => {
+    const classMap: Record<string, string> = {
+      pending_review: 'status-pending',
+      completed: 'status-completed',
+      archived: 'status-archived',
+    };
+    return classMap[status] || '';
   };
 
   const getActionText = (action: string) => {
@@ -204,8 +196,8 @@ export function AuditHistoryPage({ onNavigate }: AuditHistoryPageProps) {
           <span>返回</span>
         </button>
         <div className="header-content">
-          <h1>审查历史与审计中心</h1>
-          <p>查看历史审查记录和审查轨迹</p>
+          <h1>审查历史</h1>
+          <p>查看所有审查记录和操作轨迹</p>
         </div>
       </div>
 
@@ -264,103 +256,102 @@ export function AuditHistoryPage({ onNavigate }: AuditHistoryPageProps) {
           <div className="list-header">
             <h3>审查记录 ({filteredHistory.length})</h3>
           </div>
-          <div className="history-list">
-            {filteredHistory.length === 0 ? (
-              <div className="empty-state">
-                <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor">
-                  <path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/>
-                </svg>
-                <p>暂无审查记录</p>
-              </div>
-            ) : (
-              <table className="history-table">
-                <thead>
-                  <tr>
-                    <th>序号</th>
-                    <th>文档名称</th>
-                    <th>审查类型</th>
-                    <th>审查时间</th>
-                    <th>风险等级</th>
-                    <th>问题数</th>
-                    <th>状态</th>
-                    <th>操作</th>
+          <div className="history-table-container">
+            <table className="history-table">
+              <thead>
+                <tr>
+                  <th>序号</th>
+                  <th>文档名称</th>
+                  <th>审查类型</th>
+                  <th>审查时间</th>
+                  <th>风险等级</th>
+                  <th>问题数</th>
+                  <th>状态</th>
+                  <th>审查人</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredHistory.map((record, index) => (
+                  <tr
+                    key={record.id}
+                    className={selectedRecord?.id === record.id ? 'selected' : ''}
+                    onClick={() => handleRecordClick(record)}
+                  >
+                    <td>{index + 1}</td>
+                    <td className="doc-name">{record.document_name}</td>
+                    <td>{getAuditTypeText(record.audit_type)}</td>
+                    <td>{new Date(record.created_at).toLocaleString()}</td>
+                    <td>
+                      <span className={`risk-badge ${getRiskLevelClass(record.risk_level)}`}>
+                        {getRiskLevelText(record.risk_level)}
+                      </span>
+                    </td>
+                    <td>{record.total_issues}</td>
+                    <td>
+                      <span className={`status-badge ${getStatusClass(record.status)}`}>
+                        {getStatusText(record.status)}
+                      </span>
+                    </td>
+                    <td>{record.auditor || '-'}</td>
+                    <td>
+                      <div className="action-buttons">
+                        <button
+                          className="action-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onNavigate('result', { resultId: record.id });
+                          }}
+                          title="查看详情"
+                        >
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                          </svg>
+                        </button>
+                        {record.status !== 'completed' && record.status !== 'archived' && (
+                          <button
+                            className="action-btn highlight"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onNavigate('audit-review-confirm', { resultId: record.id });
+                            }}
+                            title="审核确认"
+                          >
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                          </button>
+                        )}
+                        <button
+                          className="action-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDownload(record, 'result');
+                          }}
+                          title="下载结果"
+                        >
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                            <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                          </svg>
+                        </button>
+                        <button
+                          className="action-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDownload(record, 'trail');
+                          }}
+                          title="下载轨迹"
+                        >
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM7 10h2v7H7zm4-3h2v10h-2zm4 6h2v4h-2z"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {filteredHistory.map((record, index) => (
-                    <tr
-                      key={record.id}
-                      className={selectedRecord?.id === record.id ? 'selected' : ''}
-                      onClick={() => handleRecordClick(record)}
-                    >
-                      <td>{index + 1}</td>
-                      <td className="doc-name">{record.document_name}</td>
-                      <td>{getAuditTypeText(record.audit_type)}</td>
-                      <td>{new Date(record.audit_time).toLocaleString()}</td>
-                      <td>
-                        <span className={`risk-badge ${getRiskLevelClass(record.risk_level)}`}>
-                          {getRiskLevelText(record.risk_level)}
-                        </span>
-                      </td>
-                      <td>{record.issue_count}</td>
-                      <td>{getStatusText(record.status)}</td>
-                      <td>
-                        <div className="action-buttons">
-                          <button
-                            className="action-btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleViewDetail(record);
-                            }}
-                            title="查看详情"
-                          >
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                              <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                            </svg>
-                          </button>
-                          <button
-                            className="action-btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleReAudit(record);
-                            }}
-                            title="重新审查"
-                          >
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                              <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
-                            </svg>
-                          </button>
-                          <button
-                            className="action-btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDownload(record, 'result');
-                            }}
-                            title="下载结果"
-                          >
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                              <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
-                            </svg>
-                          </button>
-                          <button
-                            className="action-btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDownload(record, 'trail');
-                            }}
-                            title="下载轨迹"
-                          >
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                              <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
-                            </svg>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 

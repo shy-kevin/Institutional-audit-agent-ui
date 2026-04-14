@@ -23,11 +23,12 @@ interface SavedConfig {
 interface AuditConfigPageProps {
   taskId?: number;
   files?: DocumentUpload[];
+  documents?: Array<{ document_path: string; document_name: string }>;
   auditType?: 'draft' | 'revision' | 'current';
   onNavigate: (page: string, params?: Record<string, unknown>) => void;
 }
 
-export function AuditConfigPage({ taskId, files, auditType = 'draft', onNavigate }: AuditConfigPageProps) {
+export function AuditConfigPage({ taskId, files, documents, auditType = 'draft', onNavigate }: AuditConfigPageProps) {
   const [config, setConfig] = useState<Partial<AuditConfig>>({
     name: '',
     audit_dimensions: ['compliance', 'consistency', 'format'],
@@ -239,10 +240,16 @@ export function AuditConfigPage({ taskId, files, auditType = 'draft', onNavigate
           config_id: configId,
           knowledge_base_ids: selectedKnowledgeBaseIds,
         });
-        onNavigate('progress', { taskId });
+        onNavigate('progress', { taskId, documents, auditType });
       } else if (files && files.length > 0) {
         const uploadPromises = files.map((doc) => api.uploadFile(doc.file));
         const uploadResults = await Promise.all(uploadPromises);
+        
+        // 准备文档信息
+        const docsInfo = uploadResults.map((result) => ({
+          document_path: result.file_path,
+          document_name: result.file_name,
+        }));
         
         const taskPromises = uploadResults.map((result) =>
           api.createAuditTask({
@@ -260,9 +267,9 @@ export function AuditConfigPage({ taskId, files, auditType = 'draft', onNavigate
         })));
         
         if (tasks.length === 1) {
-          onNavigate('progress', { taskId: tasks[0].id });
+          onNavigate('progress', { taskId: tasks[0].id, documents: [docsInfo[0]], auditType });
         } else {
-          onNavigate('progress', { taskIds: tasks.map((t) => t.id) });
+          onNavigate('progress', { documents: docsInfo, auditType });
         }
       }
     } catch (error) {
